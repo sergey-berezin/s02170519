@@ -1,5 +1,4 @@
-﻿using MyLibrary;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,7 +12,7 @@ namespace Eremin2020
         static async Task Main(string[] args)
         {
             var c = new CancellationTokenSource();
-            var net = new ResNet();
+            var net = new MyLibrary.ResNet();
             Console.WriteLine("Press the ENTER key to cancel...");
             Task cancelTask = Task.Run(() =>
             {
@@ -24,14 +23,12 @@ namespace Eremin2020
                 Console.WriteLine("\nENTER key pressed: cancelling downloads.\n");
                 c.Cancel();
             });
-            var tasks = net.ProcessDirectory("pictures", c.Token);
-            try
-            {
-                await Task.WhenAll(tasks);
-            }
-            catch
-            {
+            net.ProcessDirectory("pictures", c.Token);
 
+            while (net.ContiniousTaskCount() > 0)
+            {
+                await Task.WhenAny(net.tasks);
+                Console.WriteLine(net.GetResult());
             }
         }
     }
