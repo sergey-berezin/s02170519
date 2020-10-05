@@ -13,25 +13,33 @@ using System.Collections.Concurrent;
 
 namespace MyLibrary
 {
+    public class ResNetResult
+    {
+        public string FileName;
+        public string Label;
+        public ResNetResult(string f, string l)
+        {
+            FileName = f;
+            Label = l;
+        }
+    }
     public class ResNet
     {
         InferenceSession session;
-        ConcurrentQueue<string> queue;
-        public List<Task> tasks;
+        ConcurrentQueue<ResNetResult> queue;
         public ResNet()
         {
-            queue = new ConcurrentQueue<string>();
+            queue = new ConcurrentQueue<ResNetResult>();
             session = new InferenceSession("resnet152-v2-7.onnx");
-            tasks = new List<Task>();
         }
-        public string GetResult()
+        public ResNetResult GetResult()
         {
-            if (queue.TryDequeue(out string result))
+            if (queue.TryDequeue(out var result))
                 return result;
             else
-                return String.Empty;
+                return null;
         }
-        public void ProcessDirectory(string targetDirectory, CancellationToken token)
+        public Task[] ProcessDirectory(string targetDirectory, CancellationToken token)
         {
             // Process the list of files found in the directory.
             var fileEntries = from fileName in Directory.GetFiles(targetDirectory)
@@ -45,16 +53,19 @@ namespace MyLibrary
             if (n == 0)
             {
                 Console.WriteLine("Directory is empty. Abort");
-                return;
+                return null;
             }
+
+            List<Task> tasks = new List<Task>();
 
             foreach (var s in fileEntries)
             {
                 tasks.Add(Task.Factory.StartNew(path =>
                     {
-                        queue.Enqueue(ProcessImage((string)path));
+                        queue.Enqueue(new ResNetResult((string)path, ProcessImage((string)path)));
                     }, s, token));
             }
+            return tasks.ToArray();
         }
         string ProcessImage(string path)
         {
@@ -102,17 +113,9 @@ namespace MyLibrary
             var sum = output.Sum(x => (float)Math.Exp(x));
             var softmax = output.Select(x => (float)Math.Exp(x) / sum);
 
-            return path + " is " + softmax
+            return softmax
                 .Select((x, i) => new { Label = classLabels[i], Confidence = x })
                 .OrderByDescending(x => x.Confidence).FirstOrDefault().Label;
-        }
-        public int ContiniousTaskCount()
-        {
-            int c = 0;
-            foreach (var t in tasks)
-                if (t.IsCompleted)
-                    c++;
-            return tasks.Count - c;
         }
         static readonly string[] classLabels = new[]
         {

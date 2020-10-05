@@ -23,12 +23,16 @@ namespace Eremin2020
                 Console.WriteLine("\nENTER key pressed: cancelling downloads.\n");
                 c.Cancel();
             });
-            net.ProcessDirectory("pictures", c.Token);
+            var tasks = net.ProcessDirectory("pictures", c.Token);
 
-            while (net.ContiniousTaskCount() > 0)
+            var query = from i in tasks
+                        where !i.IsCompleted
+                        select i;
+            while (query.Count() > 0)
             {
-                await Task.WhenAny(net.tasks);
-                Console.WriteLine(net.GetResult());
+                await Task.WhenAny(query);
+                var result = net.GetResult();
+                Console.WriteLine(result.FileName + ": " + result.Label);
             }
         }
     }
