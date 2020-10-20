@@ -1,0 +1,21 @@
+﻿<Window x:Class="WPF_RESNET.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WPF_RESNET"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Window.Resources>
+        <DataTemplate x:Key="Images_Template">
+            <StackPanel Orientation="Horizontal">
+                <Image Source="{Binding Path=FileName}" Width="50" Height="50" />
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+    <Grid Name="grid">
+        <ListBox Name="lb" ItemsSource="{Binding Path=Classes}" HorizontalAlignment="Left" Height="337" Margin="10,10,0,0" VerticalAlignment="Top" Width="359"/>
+        <ListBox ItemsSource="{Binding Path = SelectedClass}" ItemTemplate="{StaticResource Images_Template}" HorizontalAlignment="Left" Height="337" Margin="374,10,0,0" VerticalAlignment="Top" Width="410"/>
+        <Button Name="button" Content="Обработать" HorizontalAlignment="Left" Margin="70,377,0,0" VerticalAlignment="Top" Width="75" Click="Button_Click"/>
+    </Grid>
+</Window>

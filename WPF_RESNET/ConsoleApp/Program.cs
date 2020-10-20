@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Eremin2020
+namespace ConsoleApp
 {
     class Program
     {
@@ -23,17 +23,14 @@ namespace Eremin2020
                 Console.WriteLine("\nENTER key pressed: cancelling downloads.\n");
                 c.Cancel();
             });
-            var tasks = net.ProcessDirectory("pictures", c.Token);
-
-            var query = from i in tasks
-                        where !i.IsCompleted
-                        select i;
-            while (query.Count() > 0)
+            
+            net.OnProcessedImage += () =>
             {
-                await Task.WhenAny(query);
                 var result = net.GetResult();
                 Console.WriteLine(result.FileName + ": " + result.Label);
-            }
+            };
+
+            await Task.WhenAll(net.ProcessDirectory("t", c.Token));
         }
     }
 }

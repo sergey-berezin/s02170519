@@ -1,8 +1,5 @@
 ﻿using System;
-using SixLabors.ImageSharp; // Из одноимённого пакета NuGet
-using SixLabors.ImageSharp.PixelFormats;
 using System.Linq;
-using SixLabors.ImageSharp.Processing;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Microsoft.ML.OnnxRuntime;
 using System.Collections.Generic;
@@ -10,13 +7,19 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Collections.Concurrent;
+//using System.Windows.Documents;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+//using System.Windows.Controls;
 
 namespace MyLibrary
 {
     public class ResNetResult
     {
-        public string FileName;
-        public string Label;
+        public string FileName { get; set; }
+        public string Label;        
         public ResNetResult(string f, string l)
         {
             FileName = f;
@@ -25,12 +28,27 @@ namespace MyLibrary
     }
     public class ResNet
     {
+        public event Action OnProcessedImage;
+        public bool IsProcessingNow { get {
+                if (tasks.Count == 0)
+                    return false;
+                foreach (var t in tasks)
+                    if (t.Status == TaskStatus.Created ||
+                        t.Status == TaskStatus.Running ||
+                        t.Status == TaskStatus.WaitingForActivation ||
+                        t.Status == TaskStatus.WaitingToRun)
+                        return true;
+                return false;
+            } }
         InferenceSession session;
         ConcurrentQueue<ResNetResult> queue;
+        List<Task> tasks;
+        
         public ResNet()
         {
             queue = new ConcurrentQueue<ResNetResult>();
             session = new InferenceSession("resnet152-v2-7.onnx");
+            tasks = new List<Task>();
         }
         public ResNetResult GetResult()
         {
@@ -39,7 +57,7 @@ namespace MyLibrary
             else
                 return null;
         }
-        public Task[] ProcessDirectory(string targetDirectory, CancellationToken token)
+        public List<Task> ProcessDirectory(string targetDirectory, CancellationToken token)
         {
             // Process the list of files found in the directory.
             var fileEntries = from fileName in Directory.GetFiles(targetDirectory)
@@ -53,49 +71,44 @@ namespace MyLibrary
             if (n == 0)
             {
                 Console.WriteLine("Directory is empty. Abort");
+                OnProcessedImage();
                 return null;
             }
 
-            List<Task> tasks = new List<Task>();
+            tasks = new List<Task>();
 
             foreach (var s in fileEntries)
             {
                 tasks.Add(Task.Factory.StartNew(path =>
                     {
                         queue.Enqueue(new ResNetResult((string)path, ProcessImage((string)path)));
+                        OnProcessedImage?.Invoke();
                     }, s, token));
             }
-            return tasks.ToArray();
+            return tasks;
         }
         string ProcessImage(string path)
         {
-            using var image = Image.Load<Rgb24>(path);
+            Image image = Image.FromFile(path);
 
             const int TargetWidth = 224;
             const int TargetHeight = 224;
 
-            // Изменяем размер картинки до 224 x 224
-            image.Mutate(x =>
-            {
-                x.Resize(new ResizeOptions
-                {
-                    Size = new Size(TargetWidth, TargetHeight),
-                    Mode = ResizeMode.Crop // Сохраняем пропорции обрезая лишнее
-                });
-            });
+            var bitmap = ResizeImage(image, TargetWidth, TargetHeight);
 
             // Перевод пикселов в тензор и нормализация
+            //var input = new Tensor<float>();
             var input = new DenseTensor<float>(new[] { 1, 3, TargetHeight, TargetWidth });
             var mean = new[] { 0.485f, 0.456f, 0.406f };
             var stddev = new[] { 0.229f, 0.224f, 0.225f };
             for (int y = 0; y < TargetHeight; y++)
             {
-                Span<Rgb24> pixelSpan = image.GetPixelRowSpan(y);
                 for (int x = 0; x < TargetWidth; x++)
                 {
-                    input[0, 0, y, x] = ((pixelSpan[x].R / 255f) - mean[0]) / stddev[0];
-                    input[0, 1, y, x] = ((pixelSpan[x].G / 255f) - mean[1]) / stddev[1];
-                    input[0, 2, y, x] = ((pixelSpan[x].B / 255f) - mean[2]) / stddev[2];
+                    var color = bitmap.GetPixel(x, y);
+                    input[0, 0, y, x] = ((color.R / 255f) - mean[0]) / stddev[0];
+                    input[0, 1, y, x] = ((color.G / 255f) - mean[1]) / stddev[1];
+                    input[0, 2, y, x] = ((color.B / 255f) - mean[2]) / stddev[2];
                 }
             }
 
@@ -116,6 +129,30 @@ namespace MyLibrary
             return softmax
                 .Select((x, i) => new { Label = classLabels[i], Confidence = x })
                 .OrderByDescending(x => x.Confidence).FirstOrDefault().Label;
+        }
+        Bitmap ResizeImage(Image image, int width, int height)
+        {
+            var destRect = new Rectangle(0, 0, width, height);
+            var destImage = new Bitmap(width, height);
+
+            destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution);
+
+            using (var graphics = Graphics.FromImage(destImage))
+            {
+                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.CompositingQuality = CompositingQuality.HighQuality;
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.SmoothingMode = SmoothingMode.HighQuality;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                using (var wrapMode = new ImageAttributes())
+                {
+                    wrapMode.SetWrapMode(WrapMode.TileFlipXY);
+                    graphics.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode);
+                }
+            }
+
+            return destImage;
         }
         static readonly string[] classLabels = new[]
         {
