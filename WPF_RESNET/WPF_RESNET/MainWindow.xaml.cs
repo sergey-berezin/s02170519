@@ -37,20 +37,9 @@ namespace WPF_RESNET
                             yield return i;
             } }
         object selected;
-        public IEnumerable<string> Classes { get {
-                var dictionary = new Dictionary<string, int>();
-                foreach (var i in Results)
-                    if (dictionary.ContainsKey(i.Label))
-                    {
-                        int value;
-                        dictionary.TryGetValue(i.Label, out value);
-                        value++;
-                        dictionary.Remove(i.Label);
-                        dictionary.Add(i.Label, value);
-                    }
-                    else
-                        dictionary.Add(i.Label, 1);
 
+        Dictionary<string, int> dictionary = new Dictionary<string, int>();
+        public IEnumerable<string> Classes { get {
                 foreach (var i in dictionary)
                     yield return i.Key + "; Count " + i.Value;
             }
@@ -74,33 +63,49 @@ namespace WPF_RESNET
                 OnPropertyChanged("SelectedClass");
             };
         }
-        async void ProcessedImageHandler()
+        void ProcessedImageHandler()
         {
-            Results.Add(resNet.GetResult());
-            OnPropertyChanged("Classes");
-            await Task.Run(() =>
+            var result = resNet.GetResult();
+            Results.Add(result);
+            if (dictionary.ContainsKey(result.Label))
             {
-                Task.Delay(0);
-            });
-            if (!resNet.IsProcessingNow)
-                button.Content = "Обработать";
+                int value;
+                dictionary.TryGetValue(result.Label, out value);
+                value++;
+                dictionary.Remove(result.Label);
+                dictionary.Add(result.Label, value);
+            }
+            else
+                dictionary.Add(result.Label, 1);
+
+            OnPropertyChanged("Classes");
+            if (selected != null && (selected as string).Split(';')[0] == result.Label)
+                OnPropertyChanged("SelectedClass");
         }
-	    private void Button_Click(object sender, RoutedEventArgs e)
+	    private async void Button_Click(object sender, RoutedEventArgs e)
         {
             if (!resNet.IsProcessingNow)
             {
                 Results.Clear();
+                dictionary.Clear();
                 cts = new CancellationTokenSource();
                 var f = new FolderBrowserDialog();
                 if (f.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
                     button.Content = "Отмена";
-                    resNet.ProcessDirectory(f.SelectedPath, cts.Token);
+                    try
+                    {
+                        await resNet.ProcessDirectory(f.SelectedPath, cts.Token);
+                    }
+                    catch
+                    {
+
+                    }
+                    finally { button.Content = "Обработать"; }
                 }
             }
             else
             {
-                button.Content = "Обработать";
                 cts.Cancel();
             }            
         }

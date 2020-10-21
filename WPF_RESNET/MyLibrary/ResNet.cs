@@ -57,7 +57,7 @@ namespace MyLibrary
             else
                 return null;
         }
-        public List<Task> ProcessDirectory(string targetDirectory, CancellationToken token)
+        public Task ProcessDirectory(string targetDirectory, CancellationToken token)
         {
             // Process the list of files found in the directory.
             var fileEntries = from fileName in Directory.GetFiles(targetDirectory)
@@ -85,7 +85,7 @@ namespace MyLibrary
                         OnProcessedImage?.Invoke();
                     }, s, token));
             }
-            return tasks;
+            return Task.WhenAll(tasks);
         }
         string ProcessImage(string path)
         {
