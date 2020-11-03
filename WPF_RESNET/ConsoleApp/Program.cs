@@ -30,7 +30,7 @@ namespace ConsoleApp
                 Console.WriteLine(result.FileName + ": " + result.Label);
             };
 
-            await net.ProcessDirectory("t", c.Token);
+            await net.ProcessFiles(new List<string>(), c.Token);
         }
     }
 }
