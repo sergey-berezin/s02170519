@@ -9,6 +9,7 @@ using System.Configuration;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -45,7 +46,7 @@ namespace WPF_RESNET
     public class FileDetails
     {
         public int Id { get; set; }
-        public string Data { get; set; }
+        public byte[] Data { get; set; }
     }
     public class LibraryContext : DbContext
     {
@@ -75,8 +76,9 @@ namespace WPF_RESNET
         public FileView GetFile(string fileName)
         {
             FileView file  = null;
-            var binary = System.IO.File.ReadAllText(fileName);
-            foreach (var f in Files.Include(a => a.Type).Where(a => a.Hash == binary.GetHashCode()))
+            var binary = System.IO.File.ReadAllBytes(fileName);
+            var hash = new BigInteger(binary).GetHashCode();
+            foreach (var f in Files.Include(a => a.Type).Where(a => a.Hash == hash))
             {
                 Entry(f).Reference("FileDetails").Load();
                 //f.Type = new Type();
@@ -101,10 +103,10 @@ namespace WPF_RESNET
         }
         public FileView AddResNetResult(ResNetResult result)
         {
-            var logo = System.IO.File.ReadAllText(result.FileName);
+            var logo = System.IO.File.ReadAllBytes(result.FileName);
             var query = Types.Include(a => a.Files).Where(a => a.TypeName == result.Label);
 
-            var f = new File() { Hash = logo.GetHashCode() };
+            var f = new File() { Hash = new BigInteger(logo).GetHashCode() };
             f.FileDetails = new FileDetails() { Data = logo };
             f.NumberOfRequests = 1;
             f.Path = result.FileName;

@@ -2,15 +2,17 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WPF_RESNET;
 
 namespace WPF_RESNET.Migrations
 {
     [DbContext(typeof(LibraryContext))]
-    partial class LibraryContextModelSnapshot : ModelSnapshot
+    [Migration("20201111073122_Bytes")]
+    partial class Bytes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
