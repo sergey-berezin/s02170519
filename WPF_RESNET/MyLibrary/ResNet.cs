@@ -19,11 +19,14 @@ namespace MyLibrary
     public class ResNetResult
     {
         public string FileName { get; set; }
-        public string Label;        
-        public ResNetResult(string f, string l)
+        public string Label;
+        public ResNetResult(string fileName, string label)
         {
-            FileName = f;
-            Label = l;
+            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(label))
+                throw new Exception("LOX");
+
+            FileName = fileName;
+            Label = label;
         }
     }
     public class ResNet
@@ -57,17 +60,9 @@ namespace MyLibrary
             else
                 return null;
         }
-        public Task ProcessDirectory(string targetDirectory, CancellationToken token)
+        public Task ProcessFiles(IEnumerable<string> fileEntries, CancellationToken token)
         {
-            // Process the list of files found in the directory.
-            var fileEntries = from fileName in Directory.GetFiles(targetDirectory)
-                              where (fileName.Contains(".jpg") ||
-                              fileName.Contains(".jpeg") ||
-                              fileName.Contains(".png") ||
-                              fileName.Contains(".bmp"))
-                              select fileName;
             int n = fileEntries.Count();
-            //Console.WriteLine(n);
             if (n == 0)
             {
                 Console.WriteLine("Directory is empty. Abort");

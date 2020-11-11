@@ -19,21 +19,21 @@ using System.Windows.Forms;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
+using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace WPF_RESNET
-{
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
+{    
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        LibraryContext libraryContext;
 	    ResNet resNet;
         CancellationTokenSource cts;
-        ObservableCollection<ResNetResult> Results { get; set; }
-        public IEnumerable<ResNetResult> SelectedClass {  get
+        ObservableCollection<FileView> Results { get; set; }
+        public IEnumerable<FileView> SelectedClass {  get
             {
                 foreach (var i in Results)
-                    if (selected == null || i.Label == (selected as string).Split(';')[0])
+                    if (selected == null || i.TypeName == (selected as string).Split(';')[0])
                             yield return i;
             } }
         object selected;
@@ -47,15 +47,14 @@ namespace WPF_RESNET
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        //public IEnumerable<string> Classes { get => classes as IEnumerable<string>; }
-
         public MainWindow()
         {
             InitializeComponent();
+            libraryContext = new LibraryContext();
+            //libraryContext.Clear();
             resNet = new ResNet();
             resNet.OnProcessedImage += () => Dispatcher.Invoke(ProcessedImageHandler);
-            Results = new ObservableCollection<ResNetResult>();
-            //Classes = new ObservableCollection<string>();
+            Results = new ObservableCollection<FileView>();
             grid.DataContext = this;
             lb.SelectionChanged += (s, e) =>
             {
@@ -66,20 +65,28 @@ namespace WPF_RESNET
         void ProcessedImageHandler()
         {
             var result = resNet.GetResult();
-            Results.Add(result);
-            if (dictionary.ContainsKey(result.Label))
+            if (result != null)
+            {
+                var r = libraryContext.AddResNetResult(result);
+                Results.Add(r);
+                AddImageToUI(r);
+            }
+        }
+        void AddImageToUI(FileView result)
+        {
+            if (dictionary.ContainsKey(result.TypeName))
             {
                 int value;
-                dictionary.TryGetValue(result.Label, out value);
+                dictionary.TryGetValue(result.TypeName, out value);
                 value++;
-                dictionary.Remove(result.Label);
-                dictionary.Add(result.Label, value);
+                dictionary.Remove(result.TypeName);
+                dictionary.Add(result.TypeName, value);
             }
             else
-                dictionary.Add(result.Label, 1);
+                dictionary.Add(result.TypeName, 1);
 
             OnPropertyChanged("Classes");
-            if (selected != null && (selected as string).Split(';')[0] == result.Label)
+            if (selected != null && (selected as string).Split(';')[0] == result.TypeName)
                 OnPropertyChanged("SelectedClass");
         }
 	    private async void Button_Click(object sender, RoutedEventArgs e)
@@ -93,15 +100,30 @@ namespace WPF_RESNET
                 if (f.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
                     button.Content = "Отмена";
-                    try
+                    var nonProcessedFiles = new List<string>();
+                    FileView file = null;
+                    foreach (var i in Directory.GetFiles(f.SelectedPath))
                     {
-                        await resNet.ProcessDirectory(f.SelectedPath, cts.Token);
-                    }
-                    catch
-                    {
+                        if (!(i.Contains(".png") ||
+                            i.Contains(".jpg") ||
+                            i.Contains(".jpeg") ||
+                            i.Contains(".bmp")))
+                            continue;
 
+                        file = null;
+                        file = libraryContext.GetFile(i);
+                        if (file == null)
+                            nonProcessedFiles.Add(i);
+                        else
+                        {
+                            Results.Add(file);
+                            AddImageToUI(file);
+                        }
                     }
-                    finally { button.Content = "Обработать"; }
+                    Task t = resNet.ProcessFiles(nonProcessedFiles, cts.Token);
+                    if (t != null)
+                        await t;
+                    button.Content = "Обработать";
                 }
             }
             else
@@ -113,6 +135,11 @@ namespace WPF_RESNET
         {
             if (PropertyChanged != null)
                 PropertyChanged(this, new PropertyChangedEventArgs(prop));
+        }
+
+        private void Button_Click_1(object sender, RoutedEventArgs e)
+        {
+            libraryContext.Clear();
         }
     }
 }
