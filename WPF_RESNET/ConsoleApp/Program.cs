@@ -24,13 +24,13 @@ namespace ConsoleApp
                 c.Cancel();
             });
             
-            net.OnProcessedImage += () =>
-            {
-                var result = net.GetResult();
-                Console.WriteLine(result.FileName + ": " + result.Label);
-            };
+            //net.OnProcessedImage += () =>
+            //{
+            //    var result = net.GetResult();
+            //    Console.WriteLine(result.FileName + ": " + result.Label);
+            //};
 
-            await net.ProcessFiles(new List<string>(), c.Token);
+            //await net.ProcessFiles(new List<string>(), c.Token);
         }
     }
 }
