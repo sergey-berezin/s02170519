@@ -54,7 +54,7 @@ namespace Server
         public DbSet<FileDetails> FileDetails { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlite("Data Source=../../../library.db");
+            optionsBuilder.UseSqlite("Data Source = ../../../library.db");
         }
         public void Clear()
         {
