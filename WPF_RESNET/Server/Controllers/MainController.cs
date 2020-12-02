@@ -30,12 +30,12 @@ namespace Server.Controllers
             if (!string.IsNullOrEmpty(input.TypeName))
             {
                 int i = 0;
-                Console.WriteLine(input.Data.GetHashCode());
+                Console.WriteLine(input.Data);
                 lock (libraryContext)
-                    i = libraryContext.GetStatistic(input.Data.GetHashCode());
+                    i = libraryContext.GetStatistic(int.Parse(input.Data));
                 return i.ToString();
             }
-            Console.WriteLine(input.Data.GetHashCode());
+            Console.WriteLine(input.Data.GetDeterministicHashCode());
             lock (libraryContext)
                 input.TypeName = libraryContext.GetFile(input);
             if (string.IsNullOrEmpty(input.TypeName))

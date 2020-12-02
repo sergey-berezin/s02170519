@@ -76,7 +76,7 @@ namespace Server
         {
             string output = "";
             var binary = Convert.FromBase64String(input.Data);
-            var hash = input.Data.GetHashCode();
+            var hash = input.Data.GetDeterministicHashCode();
             foreach (var f in Files.Include(a => a.Type).Where(a => a.Hash == hash))
             {
                 Entry(f).Reference("FileDetails").Load();
@@ -116,7 +116,7 @@ namespace Server
         {
             var query = Types.Include(a => a.Files).Where(a => a.TypeName == input.TypeName);
 
-            var f = new File() { Hash = input.Data.GetHashCode() };            
+            var f = new File() { Hash = input.Data.GetDeterministicHashCode() };            
             f.FileDetails = new FileDetails() { Data = Convert.FromBase64String(input.Data) };
             f.NumberOfRequests = 1;
             f.Path = "";

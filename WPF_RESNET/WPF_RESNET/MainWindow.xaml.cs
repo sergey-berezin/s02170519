@@ -135,6 +135,8 @@ namespace WPF_RESNET
                         );
                 foreach (var i in Directory.GetFiles(f.SelectedPath))
                     workerBlock.Post(i);
+                OnPropertyChanged("Classes");
+                OnPropertyChanged("SelectedClass");
             }
         }
         public void OnPropertyChanged([CallerMemberName] string prop = "")

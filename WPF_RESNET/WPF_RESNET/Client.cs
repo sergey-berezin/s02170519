@@ -86,7 +86,7 @@ namespace WPF_RESNET
             try
             {
                 var data = new SendData();
-                data.Data = input.Data;
+                data.Data = input.Data.GetDeterministicHashCode().ToString();
                 data.TypeName = input.TypeName;
                 var j = JsonConvert.SerializeObject(data);
                 var c = new StringContent(j);
