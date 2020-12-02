@@ -31,60 +31,17 @@ namespace MyLibrary
     }
     public class ResNet
     {
-        public event Action OnProcessedImage;
-        public bool IsProcessingNow { get {
-                if (tasks.Count == 0)
-                    return false;
-                foreach (var t in tasks)
-                    if (t.Status == TaskStatus.Created ||
-                        t.Status == TaskStatus.Running ||
-                        t.Status == TaskStatus.WaitingForActivation ||
-                        t.Status == TaskStatus.WaitingToRun)
-                        return true;
-                return false;
-            } }
+        //public event Action OnProcessedImage;
         InferenceSession session;
-        ConcurrentQueue<ResNetResult> queue;
-        List<Task> tasks;
         
         public ResNet()
         {
-            queue = new ConcurrentQueue<ResNetResult>();
             session = new InferenceSession("resnet152-v2-7.onnx");
-            tasks = new List<Task>();
         }
-        public ResNetResult GetResult()
+        public string ProcessImage(string path)
         {
-            if (queue.TryDequeue(out var result))
-                return result;
-            else
-                return null;
-        }
-        public Task ProcessFiles(IEnumerable<string> fileEntries, CancellationToken token)
-        {
-            int n = fileEntries.Count();
-            if (n == 0)
-            {
-                Console.WriteLine("Directory is empty. Abort");
-                OnProcessedImage();
-                return null;
-            }
 
-            tasks = new List<Task>();
-
-            foreach (var s in fileEntries)
-            {
-                tasks.Add(Task.Factory.StartNew(path =>
-                    {
-                        queue.Enqueue(new ResNetResult((string)path, ProcessImage((string)path)));
-                        OnProcessedImage?.Invoke();
-                    }, s, token));
-            }
-            return Task.WhenAll(tasks);
-        }
-        string ProcessImage(string path)
-        {
-            Image image = Image.FromFile(path);
+            Image image = Image.FromStream(new MemoryStream(Convert.FromBase64String(path)));
 
             const int TargetWidth = 224;
             const int TargetHeight = 224;

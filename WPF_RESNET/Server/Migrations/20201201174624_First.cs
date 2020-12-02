@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-namespace WPF_RESNET.Migrations
+namespace Server.Migrations
 {
     public partial class First : Migration
     {
@@ -41,6 +41,7 @@ namespace WPF_RESNET.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     Hash = table.Column<int>(type: "INTEGER", nullable: false),
                     NumberOfRequests = table.Column<int>(type: "INTEGER", nullable: false),
+                    Path = table.Column<string>(type: "TEXT", nullable: true),
                     FileDetailsId = table.Column<int>(type: "INTEGER", nullable: true),
                     TypeId = table.Column<int>(type: "INTEGER", nullable: true)
                 },

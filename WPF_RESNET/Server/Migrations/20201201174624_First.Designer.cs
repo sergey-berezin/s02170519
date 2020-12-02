@@ -4,21 +4,21 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using WPF_RESNET;
+using Server;
 
-namespace WPF_RESNET.Migrations
+namespace Server.Migrations
 {
     [DbContext(typeof(LibraryContext))]
-    [Migration("20201103170540_Fourth")]
-    partial class Fourth
+    [Migration("20201201174624_First")]
+    partial class First
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "5.0.0-rc.2.20475.6");
+                .HasAnnotation("ProductVersion", "5.0.0");
 
-            modelBuilder.Entity("WPF_RESNET.File", b =>
+            modelBuilder.Entity("Server.File", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -33,6 +33,9 @@ namespace WPF_RESNET.Migrations
                     b.Property<int>("NumberOfRequests")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Path")
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("TypeId")
                         .HasColumnType("INTEGER");
 
@@ -45,21 +48,21 @@ namespace WPF_RESNET.Migrations
                     b.ToTable("Files");
                 });
 
-            modelBuilder.Entity("WPF_RESNET.FileDetails", b =>
+            modelBuilder.Entity("Server.FileDetails", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Data")
-                        .HasColumnType("TEXT");
+                    b.Property<byte[]>("Data")
+                        .HasColumnType("BLOB");
 
                     b.HasKey("Id");
 
                     b.ToTable("FileDetails");
                 });
 
-            modelBuilder.Entity("WPF_RESNET.Type", b =>
+            modelBuilder.Entity("Server.Type", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -73,13 +76,13 @@ namespace WPF_RESNET.Migrations
                     b.ToTable("Types");
                 });
 
-            modelBuilder.Entity("WPF_RESNET.File", b =>
+            modelBuilder.Entity("Server.File", b =>
                 {
-                    b.HasOne("WPF_RESNET.FileDetails", "FileDetails")
+                    b.HasOne("Server.FileDetails", "FileDetails")
                         .WithMany()
                         .HasForeignKey("FileDetailsId");
 
-                    b.HasOne("WPF_RESNET.Type", "Type")
+                    b.HasOne("Server.Type", "Type")
                         .WithMany("Files")
                         .HasForeignKey("TypeId");
 
@@ -88,7 +91,7 @@ namespace WPF_RESNET.Migrations
                     b.Navigation("Type");
                 });
 
-            modelBuilder.Entity("WPF_RESNET.Type", b =>
+            modelBuilder.Entity("Server.Type", b =>
                 {
                     b.Navigation("Files");
                 });

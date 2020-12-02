@@ -1,5 +1,4 @@
 ﻿using Microsoft.Win32;
-using MyLibrary;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,16 +20,31 @@ using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
+using System.Net.Http;
+using Contracts;
+using System.Threading.Tasks.Dataflow;
 
 namespace WPF_RESNET
 {    
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        LibraryContext libraryContext;
-	    ResNet resNet;
-        CancellationTokenSource cts;
-        ObservableCollection<FileView> Results { get; set; }
-        public IEnumerable<FileView> SelectedClass {  get
+        public class SendDataView
+        {
+            public string NumberOfRequests { get; set; }
+            public string TypeName { get; set; }
+            public string Data { get; set; }
+            public BitmapSource Image { get; set; }
+            public SendDataView(string id, string data)
+            {
+                TypeName = id;
+                NumberOfRequests = "-";
+                Data = data;
+                Image = Utils.LoadImage(Convert.FromBase64String(data));
+            }
+        }
+        Client client;
+        ObservableCollection<SendDataView> Results { get; set; }
+        public IEnumerable<SendDataView> SelectedClass {  get
             {
                 foreach (var i in Results)
                     if (selected == null || i.TypeName == (selected as string).Split(';')[0])
@@ -49,30 +63,47 @@ namespace WPF_RESNET
 
         public MainWindow()
         {
+
             InitializeComponent();
-            libraryContext = new LibraryContext();
             //libraryContext.Clear();
-            resNet = new ResNet();
-            resNet.OnProcessedImage += () => Dispatcher.Invoke(ProcessedImageHandler);
-            Results = new ObservableCollection<FileView>();
+            client = new Client();
+            client.OnProcessedImage += () => Dispatcher.Invoke(ProcessedImageHandler);
+            client.OnGetStatistic += () => Dispatcher.Invoke(StatisticHandler);
+            client.OnConnectionFailed += () => Dispatcher.Invoke(() => Label.Content = "Connection failed");
+            Results = new ObservableCollection<SendDataView>();
             grid.DataContext = this;
             lb.SelectionChanged += (s, e) =>
             {
                 selected = lb.SelectedItem;
                 OnPropertyChanged("SelectedClass");
             };
+            client.GetAll();
+        }
+        void StatisticHandler()
+        {
+            var result = client.GetStatistic();
+            foreach (var i in Results)
+            {
+                if (i.Data == result.Data)
+                {
+                    i.NumberOfRequests = result.TypeName;
+
+                    OnPropertyChanged("SelectedClass");
+                    return;
+                }
+            }
         }
         void ProcessedImageHandler()
         {
-            var result = resNet.GetResult();
+            var result = client.GetResult();
             if (result != null)
             {
-                var r = libraryContext.AddResNetResult(result);
+                var r = new SendDataView(result.TypeName, result.Data);
                 Results.Add(r);
                 AddImageToUI(r);
             }
         }
-        void AddImageToUI(FileView result)
+        void AddImageToUI(SendDataView result)
         {
             if (dictionary.ContainsKey(result.TypeName))
             {
@@ -89,47 +120,24 @@ namespace WPF_RESNET
             if (selected != null && (selected as string).Split(';')[0] == result.TypeName)
                 OnPropertyChanged("SelectedClass");
         }
-	    private async void Button_Click(object sender, RoutedEventArgs e)
+	    private void Button_Click(object sender, RoutedEventArgs e)
         {
-            if (!resNet.IsProcessingNow)
+            Label.Content = "";
+            Results.Clear();
+            dictionary.Clear();
+            var f = new FolderBrowserDialog();
+            if (f.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                Results.Clear();
-                dictionary.Clear();
-                cts = new CancellationTokenSource();
-                var f = new FolderBrowserDialog();
-                if (f.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                {
-                    button.Content = "Отмена";
-                    var nonProcessedFiles = new List<string>();
-                    FileView file = null;
-                    foreach (var i in Directory.GetFiles(f.SelectedPath))
-                    {
-                        if (!(i.Contains(".png") ||
-                            i.Contains(".jpg") ||
-                            i.Contains(".jpeg") ||
-                            i.Contains(".bmp")))
-                            continue;
-
-                        file = null;
-                        file = libraryContext.GetFile(i);
-                        if (file == null)
-                            nonProcessedFiles.Add(i);
-                        else
-                        {
-                            Results.Add(file);
-                            AddImageToUI(file);
-                        }
-                    }
-                    Task t = resNet.ProcessFiles(nonProcessedFiles, cts.Token);
-                    if (t != null)
-                        await t;
-                    button.Content = "Обработать";
-                }
+                var workerBlock = new ActionBlock<string>
+                        (
+                            client.ProcessPicture,
+                            new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4 }
+                        );
+                foreach (var i in Directory.GetFiles(f.SelectedPath))
+                    workerBlock.Post(i);
+                OnPropertyChanged("Classes");
+                OnPropertyChanged("SelectedClass");
             }
-            else
-            {
-                cts.Cancel();
-            }            
         }
         public void OnPropertyChanged([CallerMemberName] string prop = "")
         {
@@ -139,7 +147,15 @@ namespace WPF_RESNET
 
         private void Button_Click_1(object sender, RoutedEventArgs e)
         {
-            libraryContext.Clear();
+            Label.Content = "";  
+            client.Clear();
+        }
+
+        private void Button_Click_2(object sender, RoutedEventArgs e)
+        {
+            Label.Content = "";
+            foreach (var i in Results)
+                client.GetStatistic(i);
         }
     }
 }

@@ -1,7 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Contracts;
+using Microsoft.EntityFrameworkCore;
 using MyLibrary;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -14,7 +13,7 @@ using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace WPF_RESNET
+namespace Server
 {
     public class Type
     {
@@ -55,7 +54,7 @@ namespace WPF_RESNET
         public DbSet<FileDetails> FileDetails { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlite("Data Source=../../../library.db");
+            optionsBuilder.UseSqlite("Data Source = ../../../library.db");
         }
         public void Clear()
         {
@@ -73,11 +72,11 @@ namespace WPF_RESNET
             }
             SaveChanges();
         }
-        public FileView GetFile(string fileName)
+        public string GetFile(SendData input)
         {
-            FileView file  = null;
-            var binary = System.IO.File.ReadAllBytes(fileName);
-            var hash = new BigInteger(binary).GetHashCode();
+            string output = "";
+            var binary = Convert.FromBase64String(input.Data);
+            var hash = input.Data.GetDeterministicHashCode();
             foreach (var f in Files.Include(a => a.Type).Where(a => a.Hash == hash))
             {
                 Entry(f).Reference("FileDetails").Load();
@@ -94,26 +93,37 @@ namespace WPF_RESNET
                 if (flag)
                     continue;
 
-                file = new FileView(f.Type.TypeName, f.Path, f.NumberOfRequests + 1);
+                output = f.Type.TypeName;
                 f.NumberOfRequests++;
                 SaveChanges();
                 break;
             }
-            return file;
+            return output;
         }
-        public FileView AddResNetResult(ResNetResult result)
+        public IEnumerable<SendData> GetAll()
         {
-            var logo = System.IO.File.ReadAllBytes(result.FileName);
-            var query = Types.Include(a => a.Files).Where(a => a.TypeName == result.Label);
+            foreach (var f in Files)
+            {
+                Entry(f).Reference("FileDetails").Load();
+                Entry(f).Reference("Type").Load();
+                var s = new SendData();
+                s.Data = Convert.ToBase64String(f.FileDetails.Data);
+                s.TypeName = f.Type.TypeName;
+                yield return s;
+            }
+        }
+        public void AddResNetResult(SendData input)
+        {
+            var query = Types.Include(a => a.Files).Where(a => a.TypeName == input.TypeName);
 
-            var f = new File() { Hash = new BigInteger(logo).GetHashCode() };
-            f.FileDetails = new FileDetails() { Data = logo };
+            var f = new File() { Hash = input.Data.GetDeterministicHashCode() };            
+            f.FileDetails = new FileDetails() { Data = Convert.FromBase64String(input.Data) };
             f.NumberOfRequests = 1;
-            f.Path = result.FileName;
+            f.Path = "";
 
             if (query.Count() == 0) //если новый класс
             {
-                f.Type = new Type() { TypeName = result.Label };
+                f.Type = new Type() { TypeName = input.TypeName };
                 f.Type.Files = new List<File>();
                 f.Type.Files.Add(f);
 
@@ -130,7 +140,13 @@ namespace WPF_RESNET
                 FileDetails.Add(f.FileDetails);
             }
             SaveChanges();
-            return new FileView(result.Label, result.FileName, f.NumberOfRequests);
+        }
+        public int GetStatistic(int input)
+        {
+            foreach (var i in Files.Where((f) => f.Hash == input))
+                return i.NumberOfRequests;
+
+            return 0;
         }
     }
 }
